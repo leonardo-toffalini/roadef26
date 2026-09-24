@@ -102,7 +102,7 @@ ftxui-build: ftxui-fetch
 		mkdir -p $(FTXUI_BUILD) && \
 		cd $(FTXUI_BUILD) && \
 		cmake .. -DCMAKE_BUILD_TYPE=Release -DFTXUI_BUILD_EXAMPLES=OFF -DFTXUI_BUILD_TESTS=OFF -DFTXUI_ENABLE_INSTALL=OFF && \
-		make -j$$(nproc); \
+		cmake --build . -j$$(sysctl -n hw.ncpu 2>/dev/null || nproc); \
 	fi
 
 $(TARGET): $(FTXUI_DEP) $(SOURCES) config.h | $(BINDIR)
