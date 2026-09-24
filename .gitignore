@@ -11,3 +11,8 @@ wheels/
 
 # MacOS bullshit
 *.DS_Store
+
+# Binaries
+/check
+*checker.log
+checker/bin
