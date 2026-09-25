@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import itertools
 
 import networkx as nx
 
@@ -61,3 +62,34 @@ def split_ratios(
             ratios[(node, nxt)] = share
             flow[nxt] = flow.get(nxt, 0.0) + share
     return ratios
+
+
+def loads(
+    graph: nx.DiGraph,
+    demands: list[dict],
+    scenario: Path,
+    waypoints: dict[tuple[int, int], list[int]] | None = None,
+) -> dict[tuple[int, int, int], float]:
+    """Load λ(src, dst, t): traffic on the arc divided by its capacity.
+
+    waypoints[(demand index, t)] lists intermediate nodes. A missing entry is ⟨s, t⟩.
+    """
+    waypoints = waypoints or {}
+    slots = max(len(demand["v"]) for demand in demands)
+    result = {}
+    for time in range(slots):
+        active = set(graph.edges) - down_edges(graph, scenario, time)
+        live = graph.edge_subgraph(active).copy()
+        traffic = {edge: 0.0 for edge in active}
+        cache: dict[tuple[int, int], dict[tuple[int, int], float]] = {}
+        for index, demand in enumerate(demands):
+            hops = [demand["s"], *waypoints.get((index, time), ()), demand["t"]]
+            volume = demand["v"][time]
+            for src, dst in itertools.pairwise(hops):
+                if (src, dst) not in cache:
+                    cache[(src, dst)] = split_ratios(live, src, dst)
+                for edge, share in cache[(src, dst)].items():
+                    traffic[edge] += share * volume
+        for (src, dst), amount in traffic.items():
+            result[(src, dst, time)] = amount / graph.edges[src, dst]["capacity"]
+    return result

@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 
+plt.rcParams["mathtext.fontset"] = "cm"
+
 
 def draw_topology(
     graph: nx.DiGraph, names: dict[int, str], positions: dict[int, tuple[float, float]]
@@ -112,3 +114,25 @@ def draw_step(
             ax=ax,
         )
     ax.axis("off")
+
+
+def draw_loads(loads: dict[tuple[int, int, int], float], title: str) -> None:
+    """Non-zero loads sorted decreasing, as in Figure 4 of problem_setting.pdf."""
+    ranked = sorted(
+        ((load, src, dst, time) for (src, dst, time), load in loads.items() if load > 0),
+        reverse=True,
+    )
+    labels = [rf"$(a_{{{src},{dst}}}, {time})$" for _, src, dst, time in ranked]
+    heights = [load for load, *_ in ranked]
+    top = max(heights, default=1.0)
+    fig, ax = plt.subplots(figsize=(max(8, 0.45 * len(labels)), 5))
+    ax.bar(range(len(heights)), heights, color="#7F7FFF")
+    ax.set_xticks(range(len(labels)), labels, rotation=90)
+    ax.set_ylim(0, 1.0 if top <= 1 else top * 1.05)
+    ax.set_xlabel("Arc and Time Slot")
+    ax.set_ylabel(r"Load $\lambda(a, t)$")
+    ax.set_title(title)
+    ax.set_axisbelow(True)
+    ax.grid(True)
+    fig.tight_layout()
+    plt.show()

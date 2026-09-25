@@ -2,8 +2,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from utils import down_edges, load_demands, load_net, split_ratios
-from vis import draw_step, draw_topology
+from utils import down_edges, load_demands, load_net, loads, split_ratios
+from vis import draw_loads, draw_step, draw_topology
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "toy"
 NET_PATH = DATA / "toy-net.json"
@@ -39,6 +39,12 @@ def main() -> None:
     }
     assert split_ratios(graph, 0, 5) == expected
 
+    plain = loads(graph, demands, SCENARIO_PATH)
+    assert plain[(4, 6, 0)] == 0.3125
+    assert max(plain.values()) == 0.4375
+    via_v4 = loads(graph, demands, SCENARIO_PATH, {(0, 0): [4]})
+    assert max(via_v4.values()) == 0.375
+
     draw_topology(graph, names, POS)
     for demand in demands:
         label = rf"{names[demand['s']]} $\to$ {names[demand['t']]}"
@@ -60,6 +66,11 @@ def main() -> None:
             )
         fig.tight_layout()
     plt.show()
+    draw_loads(plain, "Sorted Arc Loads Without Segment Paths")
+    draw_loads(
+        via_v4,
+        r"Sorted Arc Loads Using Segment Path $\langle v_0, v_4, v_5 \rangle$",
+    )
 
 
 if __name__ == "__main__":
