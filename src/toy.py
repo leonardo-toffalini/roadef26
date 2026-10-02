@@ -2,7 +2,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from utils import down_edges, load_demands, load_net, loads, split_ratios
+from utils import down_edges, load_demands, load_net, loads, split_ratios, validate_segment
 from vis import draw_loads, draw_step, draw_topology
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "toy"
@@ -52,9 +52,15 @@ def main() -> None:
         fig.suptitle(label)
         for time, volume in enumerate(demand["v"]):
             active = set(graph.edges) - down_edges(graph, SCENARIO_PATH, time)
-            ratios = split_ratios(
-                graph.edge_subgraph(active).copy(), demand["s"], demand["t"]
-            )
+            G_tau = graph.copy()
+            G_tau.remove_edges_from(set(graph.edges) - active)
+            u, v = demand["s"], demand["t"]
+            valid, distance = validate_segment(G_tau, u, v)
+            if valid:
+                print(f"t={time}: {names[u]} -> {names[v]}, distance={distance}")
+            else:
+                print(f"t={time}: {names[u]} -> {names[v]} is unreachable")
+            ratios = split_ratios(G_tau, u, v)
             draw_step(
                 axes[0][time],
                 graph,

@@ -29,6 +29,20 @@ def down_edges(graph: nx.DiGraph, path: Path, time: int) -> set[tuple[int, int]]
     }
 
 
+def validate_segment(
+    graph: nx.DiGraph, source: int, target: int
+) -> tuple[bool, float | None]:
+    """Return reachability and shortest metric distance for a directed segment."""
+    if source not in graph or target not in graph:
+        return False, None
+    distances = nx.single_source_dijkstra_path_length(
+        graph, source=source, weight="metric"
+    )
+    if target not in distances:
+        return False, None
+    return True, distances[target]
+
+
 def split_ratios(
     graph: nx.DiGraph, source: int, target: int
 ) -> dict[tuple[int, int], float]:
@@ -79,7 +93,8 @@ def loads(
     result = {}
     for time in range(slots):
         active = set(graph.edges) - down_edges(graph, scenario, time)
-        live = graph.edge_subgraph(active).copy()
+        live = graph.copy()
+        live.remove_edges_from(set(graph.edges) - active)
         traffic = {edge: 0.0 for edge in active}
         cache: dict[tuple[int, int], dict[tuple[int, int], float]] = {}
         for index, demand in enumerate(demands):
@@ -87,6 +102,12 @@ def loads(
             volume = demand["v"][time]
             for src, dst in itertools.pairwise(hops):
                 if (src, dst) not in cache:
+                    valid, _ = validate_segment(live, src, dst)
+                    if not valid:
+                        raise ValueError(
+                            f"Invalid segment for demand {index}: "
+                            f"{src} -> {dst} is unreachable at t={time}"
+                        )
                     cache[(src, dst)] = split_ratios(live, src, dst)
                 for edge, share in cache[(src, dst)].items():
                     traffic[edge] += share * volume
