@@ -1,6 +1,6 @@
+import itertools
 import json
 from pathlib import Path
-import itertools
 
 import networkx as nx
 
@@ -12,6 +12,13 @@ def load_net(path: Path) -> nx.DiGraph:
 
 def load_demands(path: Path) -> list[dict]:
     return json.loads(path.read_text())["demands"]
+
+def load_waypoints(path: Path) -> dict[tuple[int, int], list[int]]:
+    data = json.loads(path.read_text())
+    return {
+        (entry["d"], entry["t"]): (entry["w"])
+        for entry in data["srpaths"]
+    }
 
 
 def down_edges(graph: nx.DiGraph, path: Path, time: int) -> set[tuple[int, int]]:
@@ -44,13 +51,13 @@ def split_ratios(
         return {}
     shortest = dist_s[target]
     dag = nx.DiGraph()
-    for src, dst, attrs in graph.edges(data=True):
+    for u, v, attrs in graph.edges(data=True):
         if (
-            src in dist_s
-            and dst in dist_t
-            and dist_s[src] + attrs["metric"] + dist_t[dst] == shortest
+            u in dist_s
+            and v in dist_t
+            and dist_s[u] + attrs["metric"] + dist_t[v] == shortest
         ):
-            dag.add_edge(src, dst)
+            dag.add_edge(u, v)
     flow = {source: 1.0}
     ratios = {}
     for node in nx.topological_sort(dag):

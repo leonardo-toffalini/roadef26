@@ -5,8 +5,9 @@ plt.rcParams["mathtext.fontset"] = "cm"
 
 
 def draw_topology(
-    graph: nx.DiGraph, names: dict[int, str], positions: dict[int, tuple[float, float]]
+    graph: nx.DiGraph, names: dict[int, str], positions: dict[int, tuple[float, float]] | None = None
 ) -> None:
+    positions = positions or nx.spring_layout(graph, seed=42)
     edge_labels = {
         (src, dst): f"{attrs['metric']};{attrs['capacity']}"
         for src, dst, attrs in graph.edges(data=True)
@@ -45,8 +46,13 @@ def draw_step(
     active: set[tuple[int, int]],
     ratios: dict[tuple[int, int], float],
     title: str,
-    positions: dict[int, tuple[float, float]],
+    positions: dict[int, tuple[float, float]] | None = None,
+    *,
+    source: int | None = None,
+    sink: int | None = None,
+    waypoints: list[int] | tuple[int, ...] | None = None,
 ) -> None:
+    positions = positions or nx.spring_layout(graph, seed=42)
     arc = "arc3,rad=0.10"
     flow_arc = "arc3,rad=0.22"
     metric_labels = {
@@ -54,8 +60,21 @@ def draw_step(
         for src, dst, attrs in graph.edges(data=True)
         if (src, dst) in active
     }
+    stops = set(waypoints or ())
+    node_colors = []
+    for node in graph.nodes:
+        if node == source:
+            node_colors.append("#ff6b6b")
+        elif node == sink:
+            node_colors.append("#74b9ff")
+        elif node in stops:
+            node_colors.append("#ffeaa7")
+        else:
+            node_colors.append("#d6eaf8")
     ax.set_title(title)
-    nx.draw_networkx_nodes(graph, positions, node_color="#d6eaf8", node_size=500, ax=ax)
+    nx.draw_networkx_nodes(
+        graph, positions, node_color=node_colors, node_size=500, ax=ax
+    )
     nx.draw_networkx_labels(graph, positions, labels=names, ax=ax)
     nx.draw_networkx_edges(
         graph,
