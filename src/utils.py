@@ -100,3 +100,13 @@ def loads(
         for (src, dst), amount in traffic.items():
             result[(src, dst, time)] = amount / graph.edges[src, dst]["capacity"]
     return result
+
+
+##t loads the network, traffic demands, and waypoint solutions from JSON files, identifies 
+# which links are down at each time step, computes how traffic is split across equal-cost 
+# shortest paths using ECMP, and then calculates the load on every active link.
+#The loads() function combines the demand volumes, waypoint routes, network failures, 
+# ECMP split ratios, and link capacities to return the utilisation of each link at each 
+# time step. In short, this file provides the main helper functions used by the other scripts
+#  to read the problem data and calculate routing and network loads.
+#

@@ -65,3 +65,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+##verify that failures, waypoints,
+#  shortest-path routing, ECMP splitting, and arc 
+# loads behave the way you expect before you build or test the optimization model.

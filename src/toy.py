@@ -75,3 +75,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+##: validate the routing/load calculations and visually compare normal routing against
+#  waypoint-based routing.

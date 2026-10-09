@@ -155,3 +155,11 @@ def draw_loads(loads: dict[tuple[int, int, int], float], title: str) -> None:
     ax.grid(True)
     fig.tight_layout()
     plt.show()
+
+    ##it takes the network and load information produced by other files and turns it into 
+    # graphs. draw_topology() shows the full directed network with each link labeled by its 
+    # metric and capacity, draw_step() shows the network at a specific time step with active
+    #  links, failed links, source, destination, waypoints, and traffic split ratios 
+    # highlighted, and draw_loads() creates a bar chart of the non-zero link loads sorted 
+    # from highest to lowest. In short, this file is used to visually inspect the network 
+    # structure, routing behavior, failures, and congestion levels.

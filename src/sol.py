@@ -93,3 +93,14 @@ if __name__ == "__main__":
             solved = solve_entry(graph, demands, scenario, d, t, waypoints)
             waypoints[(solved["d"], solved["t"])] = solved["w"]
             print(solved, trial_value(graph, demands, scenario, waypoints, solved["t"]))
+
+
+###For each demand and time slot, it tests all possible ordered waypoint combinations up 
+# to the allowed number of segments, first checking whether each proposed route is actually
+#  reachable in the current network after failed links are removed.
+#  For every valid waypoint choice, it computes the resulting network loads and evaluates
+#  that choice by the maximum link load at that time. It keeps the waypoint sequenc
+# e that gives the smallest maximum link load, preferring shorter waypoint sequences when 
+# there is a tie. The script solves the demands one by one, keeps previously selected
+#  waypoint choices fixed, and prints the chosen waypoints together with the resulting 
+# maximum link load.
