@@ -14,12 +14,14 @@ from utils import (
 from vis import draw_loads, draw_step, draw_topology
 
 # prefix, same as `just check data/toy/toy`: loads <name>-net/tm/scenario/srpaths.json
-INSTANCE = "data/toy/toy"
+INSTANCE = "data/setA/setA-01"
 _base = Path(__file__).resolve().parents[1] / INSTANCE
 NET_PATH = Path(f"{_base}-net.json")
 TM_PATH = Path(f"{_base}-tm.json")
 SCENARIO_PATH = Path(f"{_base}-scenario.json")
 SRPATHS_PATH = Path(f"{_base}-srpaths.json")
+
+max_demands_to_show = 3
 
 
 def main() -> None:
@@ -31,7 +33,7 @@ def main() -> None:
     got_loads = loads(graph, demands, SCENARIO_PATH, waypoints)
 
     draw_topology(graph, names)
-    for index, demand in enumerate(demands):
+    for index, demand in enumerate(demands[:max_demands_to_show]):
         label = rf"{names[demand['s']]} $\to$ {names[demand['t']]}"
         fig, axes = plt.subplots(1, slots, figsize=(10 * slots, 6), squeeze=False)
         fig.suptitle(label)
