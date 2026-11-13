@@ -50,12 +50,14 @@ def split_ratios(
     if target not in dist_s:
         return {}
     shortest = dist_s[target]
+    # summed metrics miss equality by a few ulps on longer paths
+    tol = 1e-8 * max(1.0, abs(shortest))
     dag = nx.DiGraph()
     for u, v, attrs in graph.edges(data=True):
         if (
             u in dist_s
             and v in dist_t
-            and dist_s[u] + attrs["metric"] + dist_t[v] == shortest
+            and abs(dist_s[u] + attrs["metric"] + dist_t[v] - shortest) <= tol
         ):
             dag.add_edge(u, v)
     flow = {source: 1.0}
