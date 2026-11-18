@@ -1,9 +1,11 @@
 import json
 import time
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-import networkx as nx
 import numpy as np
+import scipy.sparse as sp
+from scipy.sparse.csgraph import dijkstra
 
 # Local search over waypoints, scored like the checker: utilization is
 # traffic / capacity per (arc, slot), with that slot's failed links removed.
@@ -40,49 +42,44 @@ def unit_flows(n: int, links: list[dict], down: set[int]):
     Values are divided by capacity, so they add up to utilization. reach[u, v]
     is False when v cannot be reached from u.
     """
-    out: list[list[int]] = [[] for _ in range(n)]
-    rev = nx.DiGraph()
-    rev.add_nodes_from(range(n))
-    for i, link in enumerate(links):
-        if link["id"] not in down:
-            out[link["from"]].append(i)
-            rev.add_edge(link["to"], link["from"], metric=link["metric"])
+    fr = np.array([link["from"] for link in links])
+    to = np.array([link["to"] for link in links])
+    met = np.array([link["metric"] for link in links], float)
     cap = np.array([link["capacity"] for link in links], float)
-    reach = np.zeros((n, n), bool)
+    alive = np.flatnonzero([link["id"] not in down for link in links])
+    # csr sums duplicate entries, so give dijkstra only the cheapest parallel arc
+    order = alive[np.lexsort((met[alive], to[alive], fr[alive]))]
+    _, first = np.unique(fr[order] * n + to[order], return_index=True)
+    keep = order[first]
+    dist = dijkstra(sp.csr_matrix((met[keep], (fr[keep], to[keep])), shape=(n, n)))
+    reach = np.isfinite(dist)
+    # on[e, v]: alive arc e lies on a shortest path to v
+    a, b = dist[fr[alive]], dist[to[alive]]
+    # summed metrics miss equality by a few ulps on longer paths
+    tol = 1e-8 * np.maximum(1.0, a)
+    with np.errstate(invalid="ignore"):
+        on = np.isfinite(b) & (np.abs(a - met[alive, None] - b) <= tol)
+    deg = np.zeros((n, n))
+    np.add.at(deg, fr[alive], on)
+    eye = sp.identity(n, format="csr")
     keys, cols, vals = [], [], []
     for v in range(n):
-        dist = nx.single_source_dijkstra_path_length(rev, v, weight="metric")
-        sources = np.fromiter(dist, int)
-        reach[sources, v] = True
-        # at[x, s]: flow from source s arriving at x
-        at = np.zeros((n, n))
-        at[sources, sources] = 1.0
-        edges, shares = [], []
-        # metrics are positive, so every predecessor is farther from v
-        for x in sorted(dist, key=dist.get, reverse=True):
-            if x == v:
-                continue
-            # summed metrics miss equality by a few ulps on longer paths
-            tol = 1e-8 * max(1.0, dist[x])
-            nxt = [
-                i
-                for i in out[x]
-                if links[i]["to"] in dist
-                and abs(dist[x] - links[i]["metric"] - dist[links[i]["to"]]) <= tol
-            ]
-            share = at[x] / len(nxt)
-            for i in nxt:
-                at[links[i]["to"]] += share
-                edges.append(i)
-                shares.append(share)
-        if not edges:
+        e = alive[on[:, v]]
+        if e.size == 0:
             continue
-        flow = np.array(shares)
-        row, source = np.nonzero(flow)
-        edge = np.array(edges)[row]
-        keys.append(source * n + v)
+        # ECMP splits evenly over the next hops toward v
+        w = 1.0 / deg[fr[e], v]
+        step = sp.csr_matrix((w, (fr[e], to[e])), shape=(n, n))
+        # at[s, x]: share of s's flow passing x, summed over hop counts.
+        # the shortest-path graph is acyclic, so the powers reach zero.
+        at, power = eye, eye
+        while (power := power @ step).nnz:
+            at = at + power
+        flow = (at @ sp.csr_matrix((w, (fr[e], np.arange(e.size))), (n, e.size))).tocoo()
+        edge = e[flow.col]
+        keys.append(flow.row * n + v)
         cols.append(edge)
-        vals.append(flow[row, source] / cap[edge])
+        vals.append(flow.data / cap[edge])
     key = np.concatenate(keys)
     order = np.argsort(key, kind="stable")
     ptr = np.zeros(n * n + 1, np.int64)
@@ -116,7 +113,9 @@ def search(n, links, demands, scenario, time_limit=TIME_LIMIT, log=True):
     budget = {step["t"]: step["value"] for step in scenario["budget"]}
     max_via = scenario["max_segments"] - 1
     t0 = time.perf_counter()
-    flows = [unit_flows(n, links, down[t]) for t in range(slots)]
+    # slots are independent, so build them in parallel processes
+    with ProcessPoolExecutor() as pool:
+        flows = list(pool.map(unit_flows, [n] * slots, [links] * slots, [down[t] for t in range(slots)]))
     if log:
         print(f"  unit flows {time.perf_counter() - t0:.1f}s", flush=True)
     vol = np.array([demand["v"] for demand in demands], float)

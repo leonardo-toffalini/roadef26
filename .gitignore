@@ -16,3 +16,6 @@ wheels/
 /check
 *checker.log
 checker/bin
+
+# Published result CSVs downloaded by src/vs_best.py
+/results
